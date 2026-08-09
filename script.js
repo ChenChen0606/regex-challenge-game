@@ -17,6 +17,7 @@
   const TOTAL_ROUNDS = 10;
   const TIME_LIMIT_S = 40; // seconds shown on the drain bar before it bottoms out
   const MAX_LIVES = 5;
+  const WRONG_ANSWER_TIME_PENALTY_S = 5; // seconds burned off the clock per wrong guess
 
   // ---------- state ----------
   let deck = [];
@@ -46,6 +47,7 @@
   const feedbackText = document.getElementById('feedback-text');
   const feedbackPoints = document.getElementById('feedback-points');
   const timerbar = document.getElementById('timerbar');
+  const timerTrack = document.querySelector('.timerbar-track');
   const btnSubmit = document.getElementById('btn-submit');
   const btnSkip = document.getElementById('btn-skip');
   const livesEl = document.getElementById('lives');
@@ -123,9 +125,25 @@
     return 'Rookie Parser';
   }
 
+  function resetTimerVisual(){
+    timerbar.style.transition = 'none';
+    timerbar.style.transform = 'scaleX(1)';
+    timerbar.style.background = 'linear-gradient(90deg, var(--pink-primary), var(--pink-primary-dark))';
+  }
+
   function showScreen(name){
     Object.values(screens).forEach(s => s.classList.remove('active'));
     screens[name].classList.add('active');
+
+    if(name === 'game'){
+      timerTrack.style.display = '';
+    } else {
+      // Not in a round: make sure the timer is fully stopped and hidden,
+      // so it can't keep animating in the background on other screens.
+      clearInterval(timerInterval);
+      timerTrack.style.display = 'none';
+      resetTimerVisual();
+    }
   }
 
   function shuffle(arr){
@@ -188,11 +206,9 @@
 
     questionStart = Date.now();
     clearInterval(timerInterval);
-    timerbar.style.transition = 'none';
-    timerbar.style.transform = 'scaleX(1)';
-    timerbar.style.background = 'linear-gradient(90deg, var(--pink-primary), var(--pink-primary-dark))';
+    resetTimerVisual();
     void timerbar.offsetWidth; // reflow
-    timerbar.style.transition = `transform ${TIME_LIMIT_S}s linear`;
+    timerbar.style.transition = `transform ${TIME_LIMIT_S}s linear, background-color 0.3s`;
     requestAnimationFrame(() => { timerbar.style.transform = 'scaleX(0)'; });
 
     timerInterval = setInterval(() => {
@@ -204,6 +220,27 @@
         handleTimeout();
       }
     }, 200);
+  }
+
+  // Instantly "burns" `penaltySeconds` off the clock and re-syncs the
+  // draining animation to continue from the new (smaller) remaining time.
+  function applyTimePenalty(penaltySeconds){
+    questionStart -= penaltySeconds * 1000;
+    const elapsed = Math.min(elapsedSeconds(), TIME_LIMIT_S);
+    const scale = Math.max(0, 1 - elapsed / TIME_LIMIT_S);
+
+    timerbar.style.transition = 'none';
+    timerbar.style.transform = `scaleX(${scale})`;
+    if(elapsed > TIME_LIMIT_S * 0.66){
+      timerbar.style.background = 'linear-gradient(90deg, #e0396a, #b8214f)';
+    }
+    void timerbar.offsetWidth; // reflow so the jump applies instantly, no transition
+
+    const remainingTime = Math.max(0, TIME_LIMIT_S - elapsed);
+    timerbar.style.transition = `transform ${remainingTime}s linear, background-color 0.3s`;
+    requestAnimationFrame(() => { timerbar.style.transform = 'scaleX(0)'; });
+
+    shakeCard();
   }
 
   function handleTimeout(){
@@ -229,6 +266,7 @@
     shakeCard();
     if(lives <= 0){
       locked = true;
+      clearInterval(timerInterval);
       answerInput.disabled = true;
       btnSubmit.disabled = true;
       btnSkip.disabled = true;
@@ -300,11 +338,22 @@
       answerInput.classList.add('incorrect');
       feedback.classList.remove('correct');
       feedback.classList.add('show','incorrect');
-      feedbackText.textContent = 'Incorrect! Try again.';
-      feedbackPoints.textContent = '';
       beep(180, .18, 'sawtooth', .05);
-      loseLife();
       setTimeout(() => answerInput.classList.remove('incorrect'), 350);
+
+      // Wrong guess: normally burns time off the clock instead of a heart.
+      // Only if the clock is already out of time does it cost a heart.
+      const remaining = TIME_LIMIT_S - elapsedSeconds();
+      if(remaining <= 0){
+        feedbackText.textContent = 'Incorrect! Out of time.';
+        feedbackPoints.textContent = '';
+        loseLife();
+      } else {
+        const penalty = Math.min(remaining, WRONG_ANSWER_TIME_PENALTY_S);
+        feedbackText.textContent = 'Incorrect! Try again.';
+        feedbackPoints.textContent = `-${penalty.toFixed(1)}s`;
+        applyTimePenalty(penalty);
+      }
     }
   }
 
@@ -327,6 +376,7 @@
 
   function endGame(){
     clearInterval(timerInterval);
+    renderLives(); // make sure the final heart state (e.g. all lost) is shown
     showScreen('end');
     document.getElementById('final-score').textContent = String(score);
     document.getElementById('stat-correct').textContent = `${correctCount} / ${TOTAL_ROUNDS}`;
@@ -336,6 +386,7 @@
   }
 
   renderLives();
+  timerTrack.style.display = 'none'; // hidden until the game screen is shown
 
   // ---------- events ----------
   document.getElementById('btn-start').addEventListener('click', startGame);
