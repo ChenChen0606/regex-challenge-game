@@ -20,8 +20,8 @@
   const WRONG_ANSWER_TIME_PENALTY_S = 5; // seconds burned off the clock per wrong guess
 
   // ---------- state ----------
-  let deck = [];
-  let roundIndex = 0;
+  let queue = [];          // challenges still left to correctly answer (or fail)
+  let completedCount = 0;  // how many of the 10 have been resolved (correct or failed)
   let score = 0;
   let correctCount = 0;
   let totalCorrectTime = 0;
@@ -138,8 +138,8 @@
     if(name === 'game'){
       timerTrack.style.display = '';
     } else {
-      // Not in a round: make sure the timer is fully stopped and hidden,
-      // so it can't keep animating in the background on other screens.
+      // Not in a round: fully stop and hide the timer so it can't keep
+      // animating in the background on the welcome/end screens.
       clearInterval(timerInterval);
       timerTrack.style.display = 'none';
       resetTimerVisual();
@@ -167,14 +167,14 @@
     const dots = dotsEl.children;
     for(let i = 0; i < dots.length; i++){
       dots[i].classList.remove('done','current');
-      if(i < roundIndex) dots[i].classList.add('done');
-      else if(i === roundIndex) dots[i].classList.add('current');
+      if(i < completedCount) dots[i].classList.add('done');
+      else if(i === completedCount) dots[i].classList.add('current');
     }
   }
 
   function startGame(){
-    deck = shuffle(CHALLENGES).slice(0, TOTAL_ROUNDS);
-    roundIndex = 0;
+    queue = shuffle(CHALLENGES).slice(0, TOTAL_ROUNDS);
+    completedCount = 0;
     score = 0;
     correctCount = 0;
     totalCorrectTime = 0;
@@ -189,8 +189,8 @@
 
   function loadRound(){
     locked = false;
-    const c = deck[roundIndex];
-    progressText.textContent = `Challenge ${roundIndex+1} / ${TOTAL_ROUNDS}`;
+    const c = queue[0];
+    progressText.textContent = `Challenge ${completedCount+1} / ${TOTAL_ROUNDS}`;
     updateDots();
     regexDisplay.textContent = '/' + c.pattern + '/';
     hintDisplay.innerHTML = 'Hint: <b>' + c.hint + '</b>';
@@ -217,12 +217,16 @@
         timerbar.style.background = 'linear-gradient(90deg, #e0396a, #b8214f)';
       }
       if(elapsed >= TIME_LIMIT_S && !locked){
-        handleTimeout();
+        failRound("Time's up!");
       }
     }, 200);
   }
 
-  // Instantly "burns" `penaltySeconds` off the clock and re-syncs the
+  function elapsedSeconds(){
+    return (Date.now() - questionStart) / 1000;
+  }
+
+  // Instantly burns `penaltySeconds` off the clock and re-syncs the
   // draining animation to continue from the new (smaller) remaining time.
   function applyTimePenalty(penaltySeconds){
     questionStart -= penaltySeconds * 1000;
@@ -243,39 +247,43 @@
     shakeCard();
   }
 
-  function handleTimeout(){
+  // Called whenever the clock actually runs out — naturally, or because
+  // repeated wrong answers drained it to zero. This is the ONLY place
+  // a heart gets lost (besides being explicitly out of time on submit).
+  function failRound(message){
     if(locked) return;
     locked = true;
     clearInterval(timerInterval);
     streak = 0;
-    loseLife();
+
+    queue.shift(); // this challenge is resolved (failed) — it does not return
+    completedCount += 1;
+    lives -= 1;
+    renderLives();
+    shakeCard();
+
     feedback.classList.remove('correct');
     feedback.classList.add('show','incorrect');
-    feedbackText.textContent = "Time's up!";
+    feedbackText.textContent = message;
     feedbackPoints.textContent = '';
     answerInput.disabled = true;
     btnSubmit.disabled = true;
     btnSkip.disabled = true;
     beep(160, .35, 'sawtooth', .06);
-    setTimeout(() => { if(lives > 0) nextRound(); }, 900);
-  }
 
-  function loseLife(){
-    lives -= 1;
-    renderLives();
-    shakeCard();
-    if(lives <= 0){
-      locked = true;
-      clearInterval(timerInterval);
-      answerInput.disabled = true;
-      btnSubmit.disabled = true;
-      btnSkip.disabled = true;
-      setTimeout(endGame, 850);
-    }
+    setTimeout(() => {
+      if(lives <= 0){
+        endGame();
+      } else if(queue.length === 0){
+        endGame();
+      } else {
+        loadRound();
+      }
+    }, 900);
   }
 
   answerInput.addEventListener('input', () => {
-    const c = deck[roundIndex];
+    const c = queue[0];
     if(!c) return;
     if(answerInput.value.length === 0){
       liveIcon.textContent = '';
@@ -293,14 +301,10 @@
     }
   });
 
-  function elapsedSeconds(){
-    return (Date.now() - questionStart) / 1000;
-  }
-
   function submitAnswer(){
     if(locked) return;
     const val = answerInput.value;
-    const c = deck[roundIndex];
+    const c = queue[0];
     const isMatch = c.regex.test(val);
 
     if(isMatch){
@@ -315,6 +319,8 @@
       score += earned;
       correctCount += 1;
       totalCorrectTime += secs;
+      queue.shift();
+      completedCount += 1;
       scoreDisplay.textContent = String(score);
 
       answerInput.classList.add('correct');
@@ -331,25 +337,29 @@
       spawnParticles(rect.left + rect.width/2, rect.top + rect.height/2);
       if(streak >= 2){ popCombo(`Combo x${streak}!`); }
 
-      setTimeout(nextRound, 950);
+      setTimeout(() => {
+        if(queue.length === 0){ endGame(); } else { loadRound(); }
+      }, 950);
+
     } else {
+      // WRONG ANSWER: this NEVER touches hearts directly.
+      // If there's still time on the clock, it just burns some of it off.
+      // Only if the clock is already at zero does this click count as
+      // running out of time (which is the only thing that costs a heart).
+      const remaining = TIME_LIMIT_S - elapsedSeconds();
+
       streak = 0;
       answerInput.classList.remove('correct');
       answerInput.classList.add('incorrect');
-      feedback.classList.remove('correct');
-      feedback.classList.add('show','incorrect');
       beep(180, .18, 'sawtooth', .05);
       setTimeout(() => answerInput.classList.remove('incorrect'), 350);
 
-      // Wrong guess: normally burns time off the clock instead of a heart.
-      // Only if the clock is already out of time does it cost a heart.
-      const remaining = TIME_LIMIT_S - elapsedSeconds();
       if(remaining <= 0){
-        feedbackText.textContent = 'Incorrect! Out of time.';
-        feedbackPoints.textContent = '';
-        loseLife();
+        failRound('Incorrect! Out of time.');
       } else {
         const penalty = Math.min(remaining, WRONG_ANSWER_TIME_PENALTY_S);
+        feedback.classList.remove('correct');
+        feedback.classList.add('show','incorrect');
         feedbackText.textContent = 'Incorrect! Try again.';
         feedbackPoints.textContent = `-${penalty.toFixed(1)}s`;
         applyTimePenalty(penalty);
@@ -362,16 +372,10 @@
     locked = true;
     clearInterval(timerInterval);
     streak = 0;
-    nextRound();
-  }
-
-  function nextRound(){
-    roundIndex += 1;
-    if(roundIndex >= TOTAL_ROUNDS){
-      endGame();
-    } else {
-      loadRound();
-    }
+    // Send this challenge to the back of the line instead of dropping it —
+    // it'll come back around later in this same game.
+    queue.push(queue.shift());
+    loadRound();
   }
 
   function endGame(){
