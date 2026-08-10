@@ -335,24 +335,12 @@ label.field-label{
 }
 
 .input-wrap{ position:relative; }
-.live-icon{
-  position:absolute;
-  right:14px;
-  top:50%;
-  transform:translateY(-50%);
-  font-family: var(--mono);
-  font-size:16px;
-  font-weight:700;
-  pointer-events:none;
-}
-.live-icon.good{ color: var(--success); }
-.live-icon.bad{ color: var(--error); }
 
 input[type="text"]{
   width:100%;
   font-family: var(--mono);
   font-size: 16px;
-  padding: 14px 40px 14px 16px;
+  padding: 14px 16px;
   border-radius: 12px;
   border: 1.5px solid var(--pink-line);
   background: #fffdfd;
