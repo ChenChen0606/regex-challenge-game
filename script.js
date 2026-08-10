@@ -1,3 +1,4 @@
+
 (function(){
   // ---------- challenge bank ----------
   const CHALLENGES = [
@@ -51,7 +52,6 @@
   const btnSubmit = document.getElementById('btn-submit');
   const btnSkip = document.getElementById('btn-skip');
   const livesEl = document.getElementById('lives');
-  const liveIcon = document.getElementById('live-icon');
   const cardEl = document.querySelector('.card');
   const comboPop = document.getElementById('combo-pop');
   const rankLine = document.getElementById('rank-line');
@@ -196,8 +196,6 @@
     hintDisplay.innerHTML = 'Hint: <b>' + c.hint + '</b>';
     answerInput.value = '';
     answerInput.classList.remove('correct','incorrect');
-    liveIcon.textContent = '';
-    liveIcon.classList.remove('good','bad');
     feedback.classList.remove('show','correct','incorrect');
     answerInput.disabled = false;
     btnSubmit.disabled = false;
@@ -281,25 +279,6 @@
       }
     }, 900);
   }
-
-  answerInput.addEventListener('input', () => {
-    const c = queue[0];
-    if(!c) return;
-    if(answerInput.value.length === 0){
-      liveIcon.textContent = '';
-      liveIcon.classList.remove('good','bad');
-      return;
-    }
-    if(c.regex.test(answerInput.value)){
-      liveIcon.textContent = '✓';
-      liveIcon.classList.add('good');
-      liveIcon.classList.remove('bad');
-    } else {
-      liveIcon.textContent = '✕';
-      liveIcon.classList.add('bad');
-      liveIcon.classList.remove('good');
-    }
-  });
 
   function submitAnswer(){
     if(locked) return;
