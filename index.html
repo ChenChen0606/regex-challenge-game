@@ -9,7 +9,6 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
 <div class="app">
   <div class="topbar">
     <div class="brand">Regex Challenge</div>
@@ -18,10 +17,8 @@
       <div class="score-pill"><span class="lbl">Score</span><span id="score-display">0</span></div>
     </div>
   </div>
-
   <div class="card">
     <div class="timerbar-track"><div class="timerbar-fill" id="timerbar"></div></div>
-
     <!-- WELCOME SCREEN -->
     <section class="screen active" id="screen-welcome">
       <span class="eyebrow">Pattern matching, timed</span>
@@ -33,7 +30,6 @@
         <li><span class="num">3</span> Wrong guesses cost you time — try again or skip to the next one.</li>
       </ul>
       <button class="btn-primary" id="btn-start">Start game</button>
-
       <div class="credits">
         <div class="credits-lbl">Members</div>
         <ul class="credits-list">
@@ -43,35 +39,28 @@
         </ul>
       </div>
     </section>
-
     <!-- GAME SCREEN -->
     <section class="screen" id="screen-game">
       <div class="progress-row">
         <span id="progress-text">Challenge 1 / 10</span>
         <div class="dots" id="dots"></div>
       </div>
-
       <div class="challenge-label">Match this pattern</div>
       <div class="regex-chip" id="regex-display">/.../</div>
       <div class="hint" id="hint-display"></div>
-
       <label class="field-label" for="answer-input">Your string</label>
       <div class="input-wrap">
         <input type="text" id="answer-input" placeholder="Type something that matches…" autocomplete="off" spellcheck="false">
-        <span class="live-icon" id="live-icon"></span>
       </div>
-
       <div class="feedback" id="feedback">
         <span id="feedback-text"></span>
         <span class="points" id="feedback-points"></span>
       </div>
-
       <div class="game-btn-row">
         <button class="btn-secondary" id="btn-skip">Skip</button>
         <button class="btn-primary" id="btn-submit" style="flex:2;">Check answer</button>
       </div>
     </section>
-
     <!-- END SCREEN -->
     <section class="screen" id="screen-end">
       <span class="eyebrow">Game over</span>
@@ -91,12 +80,9 @@
       <button class="btn-primary" id="btn-restart">Play again</button>
     </section>
   </div>
-
   <div class="footer-credits">Made by Gretchen Tumilap, Florie Mae Magsalay &amp; Alche Paye</div>
 </div>
-
 <div class="combo-pop" id="combo-pop"></div>
-
 <script src="script.js"></script>
 </body>
 </html>
